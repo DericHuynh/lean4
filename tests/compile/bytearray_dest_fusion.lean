@@ -9,6 +9,14 @@ namespace ByteArrayFusionTest
 
 def append3 (a b c : ByteArray) : ByteArray := (a ++ b) ++ c
 
+def append3Direct (a b c : ByteArray) : ByteArray :=
+  (a.fastAppend b).fastAppend c
+
+/-- The intermediate also escapes as a returned component; do not fuse it. -/
+def retainsIntermediate (a b c : ByteArray) : ByteArray × ByteArray :=
+  let prefix := a ++ b
+  (prefix, prefix ++ c)
+
 def append3Reference (a b c : ByteArray) : ByteArray :=
   (a.data.toList ++ b.data.toList ++ c.data.toList).toByteArray
 
@@ -18,6 +26,11 @@ def check (a b c : ByteArray) : IO Unit := do
   unless got == expected do
     throw <| IO.userError
       s!"append3 mismatched: sizes {a.size} {b.size} {c.size}"
+  unless append3Direct a b c == expected do
+    throw <| IO.userError "direct fastAppend chain changed byte contents"
+  let (prefix, full) := retainsIntermediate a b c
+  unless prefix == a.fastAppend b && full == expected do
+    throw <| IO.userError "escaping append intermediate was not preserved"
 
 def run : IO Unit := do
   let sizes := #[0, 1, 2, 3, 7, 64, 512, 4096]
