@@ -10,6 +10,10 @@ on:
       - ".github/workflows/morphic-borrow-experimental.yml"
   workflow_dispatch:
 
+concurrency:
+  group: morphic-borrow-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -38,6 +42,7 @@ jobs:
           cat /tmp/morphic-with.log
           grep -F "retained-borrow MorphicBorrowTest.wrap" /tmp/morphic-with.log
           grep -F "final MorphicBorrowTest.wrap:" /tmp/morphic-with.log
+          grep -F "RC sites after insertion MorphicBorrowTest.wrap:" /tmp/morphic-with.log
       - name: Stock compiler ablation with optimization disabled
         run: |
           build/release/stage1/bin/lean \
@@ -51,3 +56,5 @@ jobs:
             echo "Optimization unexpectedly fired with flag disabled"
             exit 1
           fi
+          grep -F "RC sites after insertion MorphicBorrowTest.wrap:" /tmp/morphic-stock.log
+          echo "RC site counts are diagnostics; no allocation or lifetime theorem follows."
