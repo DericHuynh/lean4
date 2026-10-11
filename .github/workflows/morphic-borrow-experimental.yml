@@ -5,8 +5,10 @@ on:
   pull_request:
     paths:
       - "src/Lean/Compiler/LCNF/MorphicBorrow.lean"
+      - "src/Lean/Compiler/LCNF/MorphicBorrowCheck.lean"
       - "src/Lean/Compiler/LCNF/Passes.lean"
       - "tests/compile/morphic_auto_borrow.lean*"
+      - "tests/compile/morphic_transfer_checker.lean*"
       - ".github/workflows/morphic-borrow-experimental.yml"
   workflow_dispatch:
 
@@ -31,7 +33,7 @@ jobs:
       - name: Check ordinary compiled Lean semantics
         run: |
           CTEST_PARALLEL_LEVEL=2 CTEST_OUTPUT_ON_FAILURE=1 \
-            make -C build/release -j2 test ARGS="-R 'morphic_auto_borrow'"
+            make -C build/release -j2 test ARGS="-R 'morphic_auto_borrow|morphic_transfer_checker'"
       - name: Confirm inferred lifetime mode in real LCNF
         run: |
           build/release/stage1/bin/lean \

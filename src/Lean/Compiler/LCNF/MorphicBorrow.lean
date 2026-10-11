@@ -7,6 +7,7 @@ module
 prelude
 public import Lean.Compiler.LCNF.CompilerM
 public import Lean.Compiler.LCNF.PassManager
+import Lean.Compiler.LCNF.MorphicBorrowCheck
 import Lean.Compiler.ExportAttr
 import Lean.Compiler.LCNF.PhaseExt
 import Lean.Compiler.Options
@@ -263,9 +264,16 @@ private def applyModes (decls : Array (Decl .impure)) (modes : Modes) :
     for i in [:params.size] do
       let p := params[i]!
       if inferred[i]?.getD .owned == .retain && !p.borrow then
-        params := params.set! i { p with borrow := true }
-        trace[Compiler.morphicBorrow]
-          "retained-borrow {decl.name} parameter {i}; RC insertion covers escaping storage"
+        let directSafe := match decl.value with
+          | .code code => DirectTransfer.validate p.fvarId code
+          | .extern .. => false
+        if directSafe then
+          params := params.set! i { p with borrow := true }
+          trace[Compiler.morphicBorrow]
+            "retained-borrow {decl.name} parameter {i}; RC insertion covers escaping storage"
+        else
+          trace[Compiler.morphicBorrow]
+            "declined-borrow {decl.name} parameter {i}; direct transfer or exhausted analysis"
     return { decl with params }
 
 def inferMorphicBorrow : Pass where
