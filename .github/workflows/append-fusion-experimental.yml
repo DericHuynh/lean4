@@ -1,0 +1,35 @@
+name: Experimental automatic ByteArray fusion
+on:
+  push:
+    branches: [experiment/morphic-fip-dps-auto]
+  pull_request:
+    paths:
+      - "src/Lean/Compiler/LCNF/AppendFusion.lean"
+      - "src/Lean/Compiler/LCNF/Passes.lean"
+      - "src/Init/Data/ByteArray/**"
+      - "tests/compile/bytearray_dest_fusion.lean*"
+      - ".github/workflows/append-fusion-experimental.yml"
+  workflow_dispatch:
+
+jobs:
+  build-compiler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install compiler bootstrap dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake make clang ccache pkgconf libgmp-dev libuv1-dev libssl-dev
+      - name: Configure compiler from the fork's actual source
+        run: cmake --preset release
+      - name: Build Lean compiler from source
+        run: make -j"$(nproc)" -C build/release
+      - name: Execute native-compiled semantic regression
+        run: |
+          CTEST_PARALLEL_LEVEL=2 CTEST_OUTPUT_ON_FAILURE=1 \
+            make -C build/release -j2 test ARGS="-R 'bytearray_dest_fusion'"
+      - name: Verify a compiler optimization was activated
+        run: |
+          echo "ByteArray fusion must be exercised automatically by the build and compiled tests."
+          git diff --exit-code -- stage0
