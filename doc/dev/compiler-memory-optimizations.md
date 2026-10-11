@@ -32,3 +32,21 @@ A pinned v4.33.0-rc2 probe showed that impure LCNF contains only ByteArray.size 
 - End-to-end machine-code semantic correctness and faster Lean4 compiler builds: NOT ESTABLISHED.
 
 Next: implement path-sensitive lifetime/mode constraints with conservative RC fallback and a checker for summaries; implement linear size-indexed credits on actual reset/reuse paths, including shared descendants and branch joins; establish a destination-capacity/initialization representation relation. Bind every certificate to actual generated IR. Test ablations against optimized stock Lean with physical allocator/RC instrumentation, without silently certifying a fallback.
+
+
+## Automatic array-element borrow lifetime constraints
+
+The stock Lean compiler already runs SCC-wide borrowing inference via a monotone ownedness fixed point; the Morphic reference compiler additionally tracks mode and lifetime constraints for each resource slot and then specializes calls. A first conservative part of that relationship is now integrated directly into Lean.Compiler.LCNF.InferBorrow: for Array.getInternal, Array.get!Internal, and Array.uget, if the extracted result is required to be owned, the source array is also required to be owned. Existing forward propagation from owner to element remains in place. The new OwnReason.arrayElementEscape is classified as correctness-forced rather than a performance hint, and participates automatically in each SCC fixed-point iteration before explicit RC.
+
+This does not remove reference-count instructions on its own, nor does it constitute Morphic's full path-sensitive inference. It is a conservative restriction that prevents an owned escaping child from being justified solely by a shorter-lived borrowed ancestor; generic unknown calls retain stock ownership/RC behavior. Its runtime impact and proof obligations require evaluation separately from destination-passing speedups.
+
+Code: src/Lean/Compiler/LCNF/InferBorrow.lean. Regression: tests/compile/array_borrow_lifetime.lean, with returned reference-typed elements, shared owner, branch selection, and read-only array size. The actual lean4 compiler bootstrap and tests must pass before any merged claim.
+
+Research comparison: the Morphic borrow backend's annot_modes.rs builds lifetime/mode constraints, annot_obligations.rs discharges path obligations, annot_rcs.rs emits retains/releases, and type_check_borrows.rs checks moves and loan liveness. The current Lean change covers only one known borrowed projection class, not general nested shapes, path-sensitive lifetime joins, SCC mode specialization, or a proved runtime heap relation.
+
+### Remaining formal verification requirements
+
+* Prove an explicit operational model of scoped borrows, heap aliases, and RC transfer against Lean's actual LCNF and runtime operations; a Boolean mode propagation theorem alone is insufficient.
+* Extend call summaries to record return-borrows-from-arguments and escaping projections with versioned ABI constraints, then validate constraints across SCC boundaries before changing a parameter's calling convention.
+* Preserve tail calls, and reject unknown effects with RC fallback instead of claiming resource certificates.
+* Track owned descendants separately from root uniqueness; map all field slots into resource equations before applying FP² storage reuse credits.
