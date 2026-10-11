@@ -203,6 +203,9 @@ inductive OwnReason where
   | functionCallResult (resultFVar : FVarId)
   /-- Argument to a function whose corresponding parameter is owned. -/
   | functionCallArg (resultFVar : FVarId)
+  /-- The returned array element is owned, so its container cannot be
+      treated as a nonescaping borrowed ancestor. -/
+  | arrayElementEscape (resultFVar : FVarId)
   /-- Argument or callee in a call to a free variable. -/
   | fvarCall (resultFVar : FVarId)
   /-- Argument in a partial application. -/
@@ -226,6 +229,7 @@ def OwnReason.toString (reason : OwnReason) : CompilerM String := do
     | .backwardProjectionProp resultFVar => return s!"bkwd projection propagation {← PP.ppFVar resultFVar}"
     | .functionCallResult resultFVar => return s!"result of function call {← PP.ppFVar resultFVar}"
     | .functionCallArg resultFVar => return s!"owned function argument {← PP.ppFVar resultFVar}"
+  | .arrayElementEscape resultFVar => return s!"array element lifetime may escape via {← PP.ppFVar resultFVar}"
     | .fvarCall resultFVar => return s!"argument to closure call {← PP.ppFVar resultFVar}"
     | .partialApplication resultFVar => return s!"argument to pap {← PP.ppFVar resultFVar}"
     | .tailCallPreservation funcName => return s!"tail call preservation of {funcName}"
@@ -251,7 +255,7 @@ def OwnReason.isForced (reason : OwnReason) : Bool :=
   -- situation never arises
   | .backwardProjectionProp .. => false
   -- Results of functions and constructors are naturally owned.
-  | .constructorResult .. | .functionCallResult ..
+  | .constructorResult .. | .functionCallResult .. | .arrayElementEscape ..
   -- We cannot pass borrowed values to reset or have borrow annotations destroy tail calls for
   -- correctness reasons.
   | .resetReuse .. | .tailCallPreservation .. | .jpTailCallPreservation ..
@@ -382,14 +386,18 @@ where
     | .fap ``Array.getInternal args =>
       if let .fvar parent := args[1]! then
         if ← isOwned parent then ownFVar z (.forwardProjectionProp z)
+        if ← isOwned z then ownFVar parent (.arrayElementEscape z)
     | .fap ``Array.get!Internal args =>
       if let .fvar parent := args[1]! then
         if ← isOwned parent then ownFVar z (.forwardProjectionProp z)
+        if ← isOwned z then ownFVar parent (.arrayElementEscape z)
       if let .fvar parent := args[2]! then
         if ← isOwned parent then ownFVar z (.forwardProjectionProp z)
+        if ← isOwned z then ownFVar parent (.arrayElementEscape z)
     | .fap ``Array.uget args =>
       if let .fvar parent := args[1]! then
         if ← isOwned parent then ownFVar z (.forwardProjectionProp z)
+        if ← isOwned z then ownFVar parent (.arrayElementEscape z)
     | .fap f args =>
       -- Constants remain alive at least until the end of execution and can thus effectively be seen
       -- as a "borrowed" read.
