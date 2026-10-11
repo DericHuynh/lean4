@@ -197,10 +197,13 @@ This is an implementation optimization, not a static claim about the system
 allocator: copySlice runtime and physical buffer capacity remain trusted.
 -/
 @[inline] protected def fastAppend3 (a b c : ByteArray) : ByteArray :=
-  let out := ByteArray.emptyWithCapacity (a.size + b.size + c.size)
-  let out := out.fastAppend a
-  let out := out.fastAppend b
-  out.fastAppend c
+  if a.size + b.size + c.size < 16384 then
+    (a.fastAppend b).fastAppend c
+  else
+    let out := ByteArray.emptyWithCapacity (a.size + b.size + c.size)
+    let out := out.fastAppend a
+    let out := out.fastAppend b
+    out.fastAppend c
 
 -- Needs to come after the `csimp` lemma
 instance : Append ByteArray where

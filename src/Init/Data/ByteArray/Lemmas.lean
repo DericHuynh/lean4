@@ -269,7 +269,9 @@ theorem fastAppend3_eq_append (a b c : ByteArray) :
     ByteArray.fastAppend3 a b c = (a ++ b) ++ c := by
   have he : ByteArray.emptyWithCapacity (a.size + b.size + c.size) =
       ByteArray.empty := rfl
-  simp [ByteArray.fastAppend3, ByteArray.fastAppend_eq, he]
+  by_cases h : a.size + b.size + c.size < 16384
+  · simp [ByteArray.fastAppend3, h, ByteArray.fastAppend_eq]
+  · simp [ByteArray.fastAppend3, h, ByteArray.fastAppend_eq, he]
 
 /-- The compiler's append-chain rewrite preserves observable byte values. -/
 theorem fastAppend3_fusion_correct (a b c : ByteArray) :
