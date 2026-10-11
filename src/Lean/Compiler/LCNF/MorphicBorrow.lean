@@ -234,9 +234,17 @@ private def sameModes (decls : Array (Decl .impure)) (a b : Modes) : Bool :=
 /-- A finite-height ascending SCC iteration. A failure to reach a fixed
     point within the conservative bound leaves stock inference unchanged. -/
 private def solve? (decls : Array (Decl .impure)) : CompilerM (Option Modes) := do
+  let width := decls.foldl (fun n decl => n + decl.params.size) (0 : Nat)
+  let sites := decls.foldl (fun n decl => n + decl.value.size) (0 : Nat)
+  -- A conservative complexity budget prevents inference from introducing
+  -- pathological compiler-time regressions on large strongly connected groups.
+  -- The ordinary stock inference always remains available.
+  if width > 128 || sites > 20000 then
+    trace[Compiler.morphicBorrow]
+      "skip large SCC: parameters={width}, nodes={sites}; use stock inference"
+    return none
   let initial ← initSCC decls
   let mut current := initial
-  let width := decls.foldl (fun n decl => n + decl.params.size) (0 : Nat)
   for _ in [:2 * width + 2] do
     let next ← advance decls initial current
     if sameModes decls current next then
