@@ -33,7 +33,8 @@ private def appendChain? : Code .pure → Option
       | .const n _ args _, .const m _ args' _ =>
         if isByteAppend n && isByteAppend m &&
            args.size == 2 && args'.size == 2 &&
-           args'[0]! == .fvar first.fvarId then
+           args'[0]! == .fvar first.fvarId &&
+           args'[1]! != .fvar first.fvarId then
           some (final, args[0]!, args[1]!, args'[1]!)
         else none
       | _, _ => none
@@ -50,7 +51,8 @@ private def appendChain? : Code .pure → Option
            pn.toString == "HAppend" && ix == 0 && src == happ.fvarId &&
            fn == method.fvarId && fn' == method.fvarId &&
            args.size == 2 && args'.size == 2 &&
-           args'[0]! == .fvar first.fvarId then
+           args'[0]! == .fvar first.fvarId &&
+           args'[1]! != .fvar first.fvarId then
           some (final, args[0]!, args[1]!, args'[1]!)
         else none
       | _, _, _, _, _ => none
