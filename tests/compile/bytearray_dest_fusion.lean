@@ -1,5 +1,3 @@
-module
-
 /-!
 Exercise three-way byte concatenation after compiler optimization, including
 empty inputs, aliasing, and all placements of small and larger buffers.
