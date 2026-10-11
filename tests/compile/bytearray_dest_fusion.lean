@@ -17,6 +17,11 @@ def retainsIntermediate (a b c : ByteArray) : ByteArray × ByteArray :=
   let prefix := a ++ b
   (prefix, prefix ++ c)
 
+/-- This shared intermediate cannot be erased: it is used twice. -/
+def duplicateIntermediate (a b : ByteArray) : ByteArray :=
+  let prefix := a ++ b
+  prefix ++ prefix
+
 def append3Reference (a b c : ByteArray) : ByteArray :=
   (a.data.toList ++ b.data.toList ++ c.data.toList).toByteArray
 
@@ -31,6 +36,9 @@ def check (a b c : ByteArray) : IO Unit := do
   let (prefix, full) := retainsIntermediate a b c
   unless prefix == a.fastAppend b && full == expected do
     throw <| IO.userError "escaping append intermediate was not preserved"
+  let both := a.fastAppend b
+  unless duplicateIntermediate a b == both.fastAppend both do
+    throw <| IO.userError "double-use intermediate was not preserved"
 
 def run : IO Unit := do
   let sizes := #[0, 1, 2, 3, 7, 64, 512, 4096]
