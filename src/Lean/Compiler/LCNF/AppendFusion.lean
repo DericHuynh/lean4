@@ -77,6 +77,10 @@ private partial def fuseCode (code : Code .pure) : CompilerM (Code .pure) := do
     return code
 
 private def Decl.fuseAppend (decl : Decl .pure) : CompilerM (Decl .pure) := do
+  -- Do not rewrite the fallback branch of the implementation into a call to
+  -- itself during a later compiler bootstrap.
+  if decl.name == helperName then
+    return decl
   let value ← decl.value.mapCodeM fuseCode
   return { decl with value }
 
