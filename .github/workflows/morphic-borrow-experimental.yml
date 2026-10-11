@@ -1,0 +1,62 @@
+name: Experimental automatic lifetime borrowing
+on:
+  push:
+    branches: [experiment/morphic-automatic-borrow-modes]
+  pull_request:
+    paths:
+      - "src/Lean/Compiler/LCNF/MorphicBorrow.lean"
+      - "src/Lean/Compiler/LCNF/MorphicBorrowCheck.lean"
+      - "src/Lean/Compiler/LCNF/Passes.lean"
+      - "tests/compile/morphic_auto_borrow.lean*"
+      - "tests/compile/morphic_transfer_checker.lean*"
+      - ".github/workflows/morphic-borrow-experimental.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: morphic-borrow-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lean bootstrap dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake make clang ccache pkgconf libgmp-dev libuv1-dev libssl-dev
+      - name: Configure compiler
+        run: cmake --preset release
+      - name: Build compiler
+        run: make -j"$(nproc)" -C build/release
+      - name: Check ordinary compiled Lean semantics
+        run: |
+          CTEST_PARALLEL_LEVEL=2 CTEST_OUTPUT_ON_FAILURE=1 \
+            make -C build/release -j2 test ARGS="-R 'morphic_auto_borrow|morphic_transfer_checker'"
+      - name: Confirm inferred lifetime mode in real LCNF
+        run: |
+          build/release/stage1/bin/lean \
+            -Dcompiler.postponeCompile=false \
+            -Dtrace.Compiler.morphicBorrow=true \
+            --c=/tmp/morphic-with.lean.c \
+            tests/compile/morphic_auto_borrow.lean > /tmp/morphic-with.log 2>&1
+          cat /tmp/morphic-with.log
+          grep -F "retained-borrow MorphicBorrowTest.wrap" /tmp/morphic-with.log
+          grep -F "final MorphicBorrowTest.wrap:" /tmp/morphic-with.log
+          grep -F "RC sites after insertion MorphicBorrowTest.wrap:" /tmp/morphic-with.log
+      - name: Stock compiler ablation with optimization disabled
+        run: |
+          build/release/stage1/bin/lean \
+            -Dcompiler.postponeCompile=false \
+            -Dcompiler.morphicBorrow=false \
+            -Dtrace.Compiler.morphicBorrow=true \
+            --c=/tmp/morphic-stock.lean.c \
+            tests/compile/morphic_auto_borrow.lean > /tmp/morphic-stock.log 2>&1
+          cat /tmp/morphic-stock.log
+          if grep -F "retained-borrow MorphicBorrowTest.wrap" /tmp/morphic-stock.log; then
+            echo "Optimization unexpectedly fired with flag disabled"
+            exit 1
+          fi
+          grep -F "RC sites after insertion MorphicBorrowTest.wrap:" /tmp/morphic-stock.log
+          echo "RC site counts are diagnostics; no allocation or lifetime theorem follows."
