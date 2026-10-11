@@ -283,6 +283,36 @@ def auditMorphicBorrow : Pass where
         "final {decl.name}: borrowed={decl.params.map (fun p => p.borrow)}"
     return decls
 
+/-- Static number of explicit RC increments after the stock RC insertion
+    pass. This is a diagnostic, not a proof that a specific retain dominates
+    a constructor or that no physical allocation occurs. -/
+private partial def countIncs : Code .impure → Nat
+  | .let _ k => countIncs k
+  | .jp (.mk _ _ _ _ body) k => countIncs body + countIncs k
+  | .cases (.mk _ _ _ alts) =>
+      alts.foldl (fun n alt => n + countIncs alt.getCode) 0
+  | .inc _ _ _ _ k _ => 1 + countIncs k
+  | .dec _ _ _ _ _ k _ => countIncs k
+  | .oset _ _ _ k _ | .uset _ _ _ k _
+  | .sset _ _ _ _ _ k _ | .setTag _ _ k _
+  | .del _ k _ => countIncs k
+  | .jmp .. | .return .. | .unreach .. => 0
+
+/-- Observe RC retain sites after explicitRc, leaving all stock ownership
+    mechanisms responsible for actual heap lifetime safety. -/
+def auditRetains : Pass where
+  phase := .impure
+  phaseOut := .impure
+  name := Name.mkSimple "auditMorphicRetains"
+  run := fun decls => do
+    for decl in decls do
+      match decl.value with
+      | .code body =>
+          trace[Compiler.morphicBorrow]
+            "RC sites after insertion {decl.name}: increments={countIncs body}"
+      | .extern .. => pure ()
+    return decls
+
 builtin_initialize
   registerTraceClass (Name.str (Name.mkSimple "Compiler") "morphicBorrow") (inherited := true)
 
