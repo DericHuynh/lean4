@@ -203,8 +203,8 @@ inductive OwnReason where
   | functionCallResult (resultFVar : FVarId)
   /-- Argument to a function whose corresponding parameter is owned. -/
   | functionCallArg (resultFVar : FVarId)
-  /-- The returned array element is owned, so its container cannot be
-      treated as a nonescaping borrowed ancestor. -/
+  /-- Conservative ownership preference when an array-derived value escapes.
+      This is not correctness-forced: RC can retain the element independently. -/
   | arrayElementEscape (resultFVar : FVarId)
   /-- Argument or callee in a call to a free variable. -/
   | fvarCall (resultFVar : FVarId)
@@ -246,7 +246,8 @@ def OwnReason.isForced (reason : OwnReason) : Bool :=
   match reason with
   -- All of these reasons propagate through ABI decisions and can thus safely be ignored as they
   -- will be accounted for by the reference counting pass.
-  | .constructorArg .. | .functionCallArg .. | .fvarCall .. | .partialApplication ..
+  | .constructorArg .. | .functionCallArg .. | .arrayElementEscape ..
+  | .fvarCall .. | .partialApplication ..
   | .jpArgPropagation ..
   -- forward propagation can never affect a user-annotated parameter
   | .forwardProjectionProp ..
@@ -255,7 +256,7 @@ def OwnReason.isForced (reason : OwnReason) : Bool :=
   -- situation never arises
   | .backwardProjectionProp .. => false
   -- Results of functions and constructors are naturally owned.
-  | .constructorResult .. | .functionCallResult .. | .arrayElementEscape ..
+  | .constructorResult .. | .functionCallResult ..
   -- We cannot pass borrowed values to reset or have borrow annotations destroy tail calls for
   -- correctness reasons.
   | .resetReuse .. | .tailCallPreservation .. | .jpTailCallPreservation ..
