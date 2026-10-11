@@ -152,6 +152,7 @@ def builtinPassManager : PassManager := {
     MorphicBorrow.auditMorphicBorrow,
     explicitBoxing,
     explicitRc,
+    MorphicBorrow.auditRetains,
     expandResetReuse,
     coalesceRC,
     pushProj (occurrence := 1),
