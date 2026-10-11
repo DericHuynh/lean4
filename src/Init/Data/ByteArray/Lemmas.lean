@@ -270,6 +270,11 @@ theorem fastAppend3_eq_append (a b c : ByteArray) :
   simp [ByteArray.fastAppend3, ByteArray.fastAppend_eq,
     emptyWithCapacity_eq_empty_all, ByteArray.empty_append]
 
+/-- The compiler's append-chain rewrite preserves observable byte values. -/
+theorem fastAppend3_fusion_correct (a b c : ByteArray) :
+    (a.fastAppend b).fastAppend c = ByteArray.fastAppend3 a b c := by
+  simp [ByteArray.fastAppend3_eq_append, ByteArray.fastAppend_eq]
+
 theorem append_assoc {a b c : ByteArray} : a ++ b ++ c = a ++ (b ++ c) := by
   ext1
   simp
