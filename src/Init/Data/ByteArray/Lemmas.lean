@@ -267,8 +267,9 @@ result bytes. It does not equate allocation traces or pointer identity.
 -/
 theorem fastAppend3_eq_append (a b c : ByteArray) :
     ByteArray.fastAppend3 a b c = (a ++ b) ++ c := by
-  simp [ByteArray.fastAppend3, ByteArray.fastAppend_eq,
-    emptyWithCapacity_eq_empty_all, ByteArray.empty_append]
+  have he : ByteArray.emptyWithCapacity (a.size + b.size + c.size) =
+      ByteArray.empty := rfl
+  simp [ByteArray.fastAppend3, ByteArray.fastAppend_eq, he]
 
 /-- The compiler's append-chain rewrite preserves observable byte values. -/
 theorem fastAppend3_fusion_correct (a b c : ByteArray) :
