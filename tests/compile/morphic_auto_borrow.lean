@@ -1,5 +1,3 @@
-module
-
 /-!
 Checks automatically inferred borrowed-mode functions on ordinary Lean declarations.
 The owned object returned by wrap must retain the input when necessary.
