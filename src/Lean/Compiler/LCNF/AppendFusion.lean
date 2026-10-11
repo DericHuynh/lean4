@@ -38,7 +38,8 @@ partial def Code.fuseByteArrayAppend (code : Code .impure) :
     CompilerM (Code .impure) := do
   match code with
   | .let first (.let second k) =>
-    let k ← k.fuseByteArrayAppend
+    let tail ← (Code.let second k).fuseByteArrayAppend
+    let .let second k := tail | return .let first tail
     if let some (a, b) := appendArgs? first.value then
       if let some (.fvar intermediate, c) := appendArgs? second.value then
         if intermediate == first.fvarId &&
