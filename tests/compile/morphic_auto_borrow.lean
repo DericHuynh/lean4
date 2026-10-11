@@ -25,6 +25,27 @@ structure Box where
 
 @[noinline] def readOnly (xs : List UInt8) : Nat := xs.length
 
+/-- Ownership transfers to both fields, so each escaping path needs a
+    corresponding retain when the original input remains live. -/
+@[noinline] def nestedWrap (xs : List UInt8) : Box × Box :=
+  (wrap xs, wrapAgain xs)
+
+/-- A returning alias must not be misclassified as a short-lived borrow. -/
+@[noinline] def returnAlias (xs : List UInt8) : List UInt8 := xs
+
+/-- Borrowed reads in one branch and retained constructor storage in another. -/
+@[noinline] def branchRetain (choose : Bool) (xs : List UInt8) : Box :=
+  if choose then ⟨xs⟩ else ⟨xs.reverse.reverse⟩
+
+/-- Higher-order call sites remain conservatively owned. -/
+@[noinline] def applyUnknown (f : List UInt8 → Box) (xs : List UInt8) : Box :=
+  f xs
+
+/-- A closure that captures the source may escape its caller. -/
+@[noinline] def capture (xs : List UInt8) : Nat → Nat :=
+  fun n => n + xs.length
+
+
 @[noinline] def matchAndWrap (xs : List UInt8) : Box :=
   match xs with
   | [] => ⟨[]⟩
@@ -36,11 +57,21 @@ def check (xs : List UInt8) : IO Unit := do
   let (l, r) := wrapTwice xs
   let prefixed := appendPrefix xs
   let branched := matchAndWrap xs
+  let (n1, n2) := nestedWrap xs
+  let retained := branchRetain true xs
+  let escaped := returnAlias xs
+  let captured := capture xs
+  let unknown := applyUnknown wrap xs
   unless first.contents == xs &&
     second.contents == xs &&
     l.contents == xs && r.contents == xs &&
     prefixed == 0 :: xs &&
     branched.contents == xs &&
+    n1.contents == xs && n2.contents == xs &&
+    retained.contents == xs &&
+    escaped == xs &&
+    captured 7 == xs.length + 7 &&
+    unknown.contents == xs &&
     readOnly xs == xs.length do
       throw <| IO.userError "Morphic borrowing changed observed values"
   unless (first.contents ++ xs) == (xs ++ xs) do
