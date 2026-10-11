@@ -51,6 +51,45 @@ theorem Mode.join_assoc (a b c : Mode) :
 theorem Mode.join_idem (a : Mode) : a.join a = a := by
   cases a <;> rfl
 
+/-- Ownership demands form a finite, ascending information lattice.
+    Read is the least demand; owned is the conservative greatest demand. -/
+def Mode.rank : Mode → Nat
+  | .read => 0
+  | .retain => 1
+  | .owned => 2
+
+def Mode.le (a b : Mode) : Prop := a.rank ≤ b.rank
+
+instance (a b : Mode) : Decidable (a.le b) :=
+  inferInstanceAs (Decidable (a.rank ≤ b.rank))
+
+theorem Mode.le_refl (a : Mode) : a.le a := by
+  cases a <;> decide
+
+theorem Mode.le_trans (a b c : Mode)
+    (hab : a.le b) (hbc : b.le c) : a.le c := by
+  exact Nat.le_trans hab hbc
+
+/-- Combining constraints never loses a requirement. -/
+theorem Mode.le_join_left (a b : Mode) : a.le (a.join b) := by
+  cases a <;> cases b <;> decide
+
+theorem Mode.le_join_right (a b : Mode) : b.le (a.join b) := by
+  cases a <;> cases b <;> decide
+
+/-- Constraint propagation is monotone in both operands. -/
+theorem Mode.join_monotone (a b c d : Mode)
+    (hac : a.le c) (hbd : b.le d) :
+    (a.join b).le (c.join d) := by
+  cases a <;> cases b <;> cases c <;> cases d <;>
+    simp_all [Mode.le, Mode.rank, Mode.join]
+
+/-- The mode solver can only escalate ownership requirements. -/
+theorem Mode.join_rank_ge (a b : Mode) :
+    a.rank ≤ (a.join b).rank ∧ b.rank ≤ (a.join b).rank := by
+  exact ⟨le_join_left a b, le_join_right a b⟩
+
+
 /-- Retained means a borrow may escape only through a fresh owned reference;
     the original RC insertion pass remains responsible for that retain. -/
 def Mode.requiresRetain : Mode → Bool
