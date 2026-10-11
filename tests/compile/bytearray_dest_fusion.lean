@@ -5,6 +5,8 @@ Exercise three-way byte concatenation after compiler optimization, including
 empty inputs, aliasing, and all placements of small and larger buffers.
 -/
 
+namespace ByteArrayFusionTest
+
 def append3 (a b c : ByteArray) : ByteArray := (a ++ b) ++ c
 
 def append3Reference (a b c : ByteArray) : ByteArray :=
@@ -17,7 +19,7 @@ def check (a b c : ByteArray) : IO Unit := do
     throw <| IO.userError
       s!"append3 mismatched: sizes {a.size} {b.size} {c.size}"
 
-def main : IO Unit := do
+def run : IO Unit := do
   let sizes := #[0, 1, 2, 3, 7, 64, 512, 4096]
   let mut arrays := #[]
   for n in sizes do
@@ -31,3 +33,7 @@ def main : IO Unit := do
         check a b a
         check a a a
   IO.println "bytearray 3-way fusion semantic tests passed"
+
+end ByteArrayFusionTest
+
+def main : IO Unit := ByteArrayFusionTest.run

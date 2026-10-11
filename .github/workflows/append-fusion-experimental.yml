@@ -29,7 +29,12 @@ jobs:
         run: |
           CTEST_PARALLEL_LEVEL=2 CTEST_OUTPUT_ON_FAILURE=1 \
             make -C build/release -j2 test ARGS="-R 'bytearray_dest_fusion'"
-      - name: Verify a compiler optimization was activated
+      - name: Require actual automatic optimization trace
         run: |
-          echo "ByteArray fusion must be exercised automatically by the build and compiled tests."
-          git diff --exit-code -- stage0
+          build/release/stage1/bin/lean \
+            -Dcompiler.postponeCompile=false \
+            -Dtrace.Compiler.appendFusion=true \
+            --c=/tmp/bytearray_fusion_test.c \
+            tests/compile/bytearray_dest_fusion.lean > /tmp/append-fusion.log 2>&1
+          cat /tmp/append-fusion.log
+          grep -F "fused three ByteArray segments into one reserved destination" /tmp/append-fusion.log
