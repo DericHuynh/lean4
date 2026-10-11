@@ -188,6 +188,20 @@ theorem append_eq_fastAppend : @ByteArray.append = @ByteArray.fastAppend := by
   apply Array.ext'
   simp [ByteArray.fastAppend, copySlice, ← size_data, - Array.append_assoc]
 
+/--
+Appends three byte arrays into a fresh destination whose capacity is reserved
+before the first write. The three inputs can be borrowed throughout the writes,
+while the destination is linearly passed to the next copy.
+
+This is an implementation optimization, not a static claim about the system
+allocator: copySlice runtime and physical buffer capacity remain trusted.
+-/
+@[inline] protected def fastAppend3 (a b c : ByteArray) : ByteArray :=
+  let out := ByteArray.emptyWithCapacity (a.size + b.size + c.size)
+  let out := out.fastAppend a
+  let out := out.fastAppend b
+  out.fastAppend c
+
 -- Needs to come after the `csimp` lemma
 instance : Append ByteArray where
   append := ByteArray.append
