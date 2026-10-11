@@ -256,6 +256,28 @@ theorem extract_add_four {a : ByteArray} {i : Nat} (ha : i + 4 ≤ a.size) :
     extract_add_one (by omega), extract_add_three (by omega)]
   simp [← List.toByteArray_append]
 
+/-- The reserved capacity is intentionally invisible in Lean's value semantics. -/
+theorem emptyWithCapacity_eq_empty_all (n : Nat) :
+    ByteArray.emptyWithCapacity n = ByteArray.empty := by
+  rfl
+
+/--
+Semantic equation used by the LCNF append-fusion pass. The theorem is about
+result bytes. It does not equate allocation traces or pointer identity.
+-/
+theorem fastAppend3_eq_append (a b c : ByteArray) :
+    ByteArray.fastAppend3 a b c = (a ++ b) ++ c := by
+  have he : ByteArray.emptyWithCapacity (a.size + b.size + c.size) =
+      ByteArray.empty := rfl
+  by_cases h : a.size + b.size + c.size < 16384
+  · simp [ByteArray.fastAppend3, h, ByteArray.fastAppend_eq]
+  · simp [ByteArray.fastAppend3, h, ByteArray.fastAppend_eq, he]
+
+/-- The compiler's append-chain rewrite preserves observable byte values. -/
+theorem fastAppend3_fusion_correct (a b c : ByteArray) :
+    (a.fastAppend b).fastAppend c = ByteArray.fastAppend3 a b c := by
+  simp [ByteArray.fastAppend3_eq_append, ByteArray.fastAppend_eq]
+
 theorem append_assoc {a b c : ByteArray} : a ++ b ++ c = a ++ (b ++ c) := by
   ext1
   simp
