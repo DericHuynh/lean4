@@ -94,6 +94,7 @@ def builtinPassManager : PassManager := {
   basePasses := #[
     init,
     pullInstances,
+    fuseByteArrayAppend,
     cse (shouldElimFunDecls := false),
     simp,
     floatLetIn,
@@ -147,7 +148,6 @@ def builtinPassManager : PassManager := {
     insertResetReuse,
     elimDeadVars (phase := .impure) (occurrence := 0),
     simpCase,
-    fuseByteArrayAppend,
     inferBorrow,
     explicitBoxing,
     explicitRc,
